@@ -1,17 +1,24 @@
 from dataclasses import dataclass
 
+
 # Packet values should be kept in hex value for debugging with Wireshark
 @dataclass
-class FanucVariable():
+class VariableInfo():
     size : int # size in bytes
     multiply : int  # multiply - typically only used for INTs
     fmt: str = ""
 
 
 class VariableTypes:
-    INT = FanucVariable(size=2, multiply=1, fmt="<i")
-    REAL = FanucVariable(size=2, multiply=0, fmt="<f")
-    STRING = FanucVariable(size=80, multiply=0)
+    INT = VariableInfo(size=2, multiply=1, fmt="<i")
+    REAL = VariableInfo(size=2, multiply=0, fmt="<f")
+    STRING = VariableInfo(size=80, multiply=0)
+
+
+@dataclass
+class SystemVariable:
+    name: str
+    data: VariableInfo
 
 # Used at byte location 42
 class ServiceReqCode:

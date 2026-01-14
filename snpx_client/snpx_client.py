@@ -3,7 +3,7 @@ import struct
 import time
 from .digital_signal import DigitalSignal
 from .position_data import PositionData
-from .globals import FanucVariable, VariableTypes, ServiceReqCode, MemTypeCode, INIT_MSG, BASE_MSG
+from .globals import VariableInfo, VariableTypes, ServiceReqCode, MemTypeCode, INIT_MSG, BASE_MSG
 
 class SnpxClient:
     def __init__(self, ip : str = "127.0.0.1", port: int = 60008, connect_on_init : bool = False):
@@ -32,9 +32,10 @@ class SnpxClient:
         self.j_pos = PositionData(socket=self.socket, code=0x08, address=12026)
         
         # --- Set any default assignments ---
-        # Position variable
-        self.set_asg("POS[G1:0] 0.0", FanucVariable(size=50, multiply=0), 1)
-
+        # Position variable so that the position data class can work. 
+        # This is kind of janky - means the position data class leans heavily on the 
+        # client to create the assignment instead of doing it itself. 
+        self.set_asg("POS[G1:0] 0.0", VariableInfo(size=50, multiply=0), 1)
 
     def connect(self):
         """
@@ -94,7 +95,6 @@ class SnpxClient:
             payload.extend(chunk)
 
         return bytes(payload)
-    
 
     def check_if_asg_avail(self, num: int, size: int = 1) -> bool:
         """
@@ -139,7 +139,7 @@ class SnpxClient:
                 return start_num
             start_num += 1
 
-    def set_asg(self, var_name: str, var_type: FanucVariable, asg_num: int = None):
+    def set_asg(self, var_name: str, var_type: VariableInfo, asg_num: int = None):
         """
         Sets a variable assignment using the SETASG command.
 
@@ -170,7 +170,7 @@ class SnpxClient:
             "index": asg_num
         }
 
-    def read_sys_var(self, var_name: str, var_type: FanucVariable):
+    def read_sys_var(self, var_name: str, var_type: VariableInfo):
         """
         Read system variable by first assigning it to an %R register, then reading the register.
         
@@ -246,7 +246,7 @@ class SnpxClient:
 
         return value
         
-    def write_sys_var(self, var_name: str, var_type: FanucVariable, value):
+    def write_sys_var(self, var_name: str, var_type: VariableInfo, value):
         """
         Write system variable by first assigning it to an %R register, then writing to the register.
         
