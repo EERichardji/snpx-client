@@ -1,5 +1,6 @@
 import struct
 from .globals import BASE_MSG, MemTypeCode
+from .packet_utils import set_word_count
 
 class PositionData:
     def __init__(self, socket, code, address: int):
@@ -16,8 +17,7 @@ class PositionData:
 
         # build packet
         command = BASE_MSG.copy()
-        command[2] = 0x04
-        command[30] = 0x04 
+        set_word_count(command, 0x04)
         command[43] = MemTypeCode.R # memory type code
         command[46] = 0x32 # size in bytes
 

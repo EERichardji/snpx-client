@@ -1,5 +1,6 @@
 import math
 from .globals import BASE_MSG, ServiceReqCode
+from .packet_utils import set_word_count, set_address, set_payload_length
 
 class DigitalSignal:
     """
@@ -61,16 +62,16 @@ class DigitalSignal:
         start_index = self.address + start_index - 1
         command = BASE_MSG.copy()
 
-        command[2] = count & 0xFF
-        command[3] = (count >> 8) & 0xFF
-        command[30] = count & 0xFF 
+        # Use packet utilities for common fields
+        set_word_count(command, count)
+        set_address(command, start_index)
+        
+        # Memory type code
         command[43] = self.code
-        command[44] = start_index & 0xFF
-        command[45] = (start_index >> 8) & 0xFF
-
+        
+        # Payload length (byte allocation)
         byte_allocation = ((count + 7) // 8) * 8
-        command[46] = byte_allocation & 0xFF
-        command[47] = (byte_allocation >> 8) & 0xFF
+        set_payload_length(command, byte_allocation)
 
         self.socket.send(bytearray(command))
         resp = self.socket.recv(1024)
@@ -88,22 +89,23 @@ class DigitalSignal:
         if count == 0:
             return
 
+        # Custom fields for digital write
         if count <= 48:
             command[9], command[17] = 0x01, 0x01
         else:
             command[9], command[17], command[31] = 0x02, 0x02, 0x80
 
-        command[2] = count & 0xFF
-        command[3] = (count >> 8) & 0xFF
-        command[30] = count & 0xFF
+        # Use packet utilities for common fields
+        set_word_count(command, count)
+        set_address(command, start_index)
+        
+        # Service code and memory type
         command[42] = ServiceReqCode.WRITE_SYS_MEMORY
         command[43] = self.code
-        command[44] = start_index & 0xFF
-        command[45] = (start_index >> 8) & 0xFF
 
+        # Payload length (byte allocation)
         byte_allocation = ((count + 7) // 8) * 8
-        command[46] = byte_allocation & 0xFF
-        command[47] = (byte_allocation >> 8) & 0xFF
+        set_payload_length(command, byte_allocation)
 
         if count > 48:
             command[42:42] = [0x00] * 6
