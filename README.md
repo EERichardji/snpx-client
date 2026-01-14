@@ -6,7 +6,8 @@ A Python 3 communication library for reading and writing data to Fanuc Robots wi
 
 - **Digital I/O Support**: Read and write digital inputs/outputs (DI, DO, UI, UO, SI, SO)
 - **Position Data**: Read joint positions and Cartesian positions from the robot
-- **System Variables**: Read and write system variables (INT, REAL). STRING types still WIP
+- **System Variables**: Read and write system variables (INT, REAL, STRING) with automatic assignment management
+- **Variable Groups**: Efficiently read/write multiple variables at once with sequential assignments
 - **Automatic Assignment Management**: Automatically manages SNPX assignments with size-aware allocation
 - **Clean API**: Simple, intuitive interface for robot communication
 
@@ -40,11 +41,11 @@ print(f"Digital outputs: {outputs}")
 client.di.write([True, False, True], start_index=1)
 
 # Read system variable
-angle_tolerance = client.read_sys_var("$ANGTOL[1]", VariableTypes.REAL)
+angle_tolerance = client.sys_vars.read("$ANGTOL[1]", VariableTypes.REAL)
 print(f"Angle tolerance: {angle_tolerance}")
 
 # Write system variable
-client.write_sys_var("$ANGTOL[1]", VariableTypes.REAL, 1200.13)
+client.sys_vars.write("$ANGTOL[1]", VariableTypes.REAL, 1200.13)
 
 # Disconnect
 client.disconnect()
@@ -89,26 +90,46 @@ The library supports three variable types:
 
 ```python
 # Read system variables
-int_var = client.read_sys_var("$AC_CRC_ACCO[1]", VariableTypes.INT)
-real_var = client.read_sys_var("$ANGTOL[1]", VariableTypes.REAL)
-
+int_var = client.sys_vars.read("$AC_CRC_ACCO[1]", VariableTypes.INT)
+real_var = client.sys_vars.read("$ANGTOL[1]", VariableTypes.REAL)
 
 # Write system variables
-client.write_sys_var("$ANGTOL[1]", VariableTypes.REAL, 1200.13)
-client.write_sys_var("$SCR_GRP[1].$MCR_NAME", VariableTypes.STRING, "MyProgram")
+client.sys_vars.write("$ANGTOL[1]", VariableTypes.REAL, 1200.13)
+client.sys_vars.write("$SCR_GRP[1].$MCR_NAME", VariableTypes.STRING, "MyProgram")
 ```
+
+### System Variable Groups
+
+Create groups of variables that are assigned sequentially for efficient batch operations:
+
+```python
+# Create a variable group with sequential assignments
+var_group = client.sys_vars.create_var_group([
+    ("$VAR1", VariableTypes.INT),
+    ("$VAR2", VariableTypes.INT),
+    ("$VAR3", VariableTypes.REAL)
+])
+
+# Read all variables in the group at once (returns tuple)
+values = var_group.read()  # (int_val1, int_val2, float_val3)
+
+# Write all variables in the group at once
+var_group.write((100, 200, 45.5))
+```
+
+Variable groups assign variables sequentially, so each variable's assignment number increases by the previous variable's size. This allows efficient single-packet reads and writes for multiple variables.
 
 ### Manual Assignment Management
 
 ```python
 # Manually set an assignment (optional - usually automatic)
-client.set_asg("$ANGTOL[1]", VariableTypes.REAL, asg_num=1)
+client.sys_vars.set_asg("$ANGTOL[1]", VariableTypes.REAL, asg_num=1)
 
 # Check if assignment number is available
-is_available = client.check_if_asg_avail(1, size=2)
+is_available = client.sys_vars.check_if_asg_avail(1, size=2)
 
 # Get next available assignment number
-next_asg = client.get_next_asg_num(size=50)
+next_asg = client.sys_vars.get_next_asg_num(size=50)
 ```
 
 ## API Reference
@@ -122,15 +143,12 @@ Main client class for robot communication.
 - `connect()`: Establish connection to robot controller
 - `disconnect()`: Close connection
 - `init_signals()`: Initialize signal/memory objects (called automatically on connect)
-- `read_sys_var(var_name, var_type)`: Read a system variable
-- `write_sys_var(var_name, var_type, value)`: Write a system variable
-- `set_asg(var_name, var_type, asg_num=None)`: Set variable assignment
-- `check_if_asg_avail(num, size=1)`: Check if assignment number is available
-- `get_next_asg_num(size=1)`: Get next available assignment number
+- `send_str(string)`: Send a string command to the robot controller
 
 #### Attributes
 
 After `init_signals()`, the following attributes are available:
+- `sys_vars`: SystemVariablesManager instance for system variable operations
 - `di`: Digital inputs
 - `do`: Digital outputs
 - `ui`: User inputs
@@ -139,6 +157,28 @@ After `init_signals()`, the following attributes are available:
 - `so`: SOP outputs
 - `j_pos`: Joint position data
 - `cart_pos`: Cartesian position data
+
+### SystemVariablesManager
+
+Manages system variable assignments and read/write operations. Accessed via `client.sys_vars`.
+
+#### Methods
+
+- `read(var_name, var_type)`: Read a system variable
+- `write(var_name, var_type, value)`: Write a system variable
+- `set_asg(var_name, var_type, asg_num=None)`: Set variable assignment
+- `check_if_asg_avail(num, size=1)`: Check if assignment number is available
+- `get_next_asg_num(size=1)`: Get next available assignment number
+- `create_var_group(variables)`: Create a SystemVariableGroup with sequential assignments
+
+### SystemVariableGroup
+
+Represents a group of system variables assigned sequentially for efficient batch operations.
+
+#### Methods
+
+- `read()`: Read all variables in the group at once (returns tuple)
+- `write(values)`: Write all variables in the group at once (takes tuple of values)
 
 ### DigitalSignal
 
@@ -166,6 +206,15 @@ The library automatically manages SNPX assignments when reading/writing system v
 - Reuses existing assignments for the same variable
 
 Assignment numbers range from 1-80, and the system considers variable sizes to prevent conflicts. For example, if a variable at index 1 has size 50, the next available index will be 51.
+
+### Variable Groups
+
+Variable groups allow you to efficiently read and write multiple variables in a single operation. When creating a group with `create_var_group()`, variables are assigned sequentially:
+- First variable gets the next available assignment number
+- Each subsequent variable's assignment number = previous assignment number + previous variable's size
+- All variables in a group are read/written in a single packet operation
+
+This is particularly efficient when you need to frequently read or write multiple related variables together.
 
 ## Protocol Details
 
