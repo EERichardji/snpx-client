@@ -2,7 +2,6 @@ import socket
 import struct
 import time
 import math
-from enum import Enum, auto
 from dataclasses import dataclass
 
 # Packet values should be kept in hex value for debugging with Wireshark
@@ -10,10 +9,12 @@ from dataclasses import dataclass
 class FanucVariable():
     size : int # size in bytes
     multiply : int  # multiply - typically only used for INTs
+    fmt: str = ""
+
 
 class VariableTypes:
-    INT = FanucVariable(size=2, multiply=1)
-    REAL = FanucVariable(size=2, multiply=0)
+    INT = FanucVariable(size=2, multiply=1, fmt="<i")
+    REAL = FanucVariable(size=2, multiply=0, fmt="<f")
     STRING = FanucVariable(size=80, multiply=0)
 
 class DigitalSignal:
@@ -453,26 +454,18 @@ class SnpxClient:
 
         # Decode the payload
         value = None
-
-        if var_type == VariableTypes.REAL:
-            # REAL (4 bytes / 2 registers) -> 32-bit little-endian float (<f)
-            value = struct.unpack("<f", data_bytes)[0]
         
-        elif var_type == VariableTypes.INT:
-            # INT (4 bytes / 2 registers) -> 32-bit little-endian signed integer (<i)
-            raw_value = struct.unpack("<i", data_bytes)[0]
-            # Apply scaling if the user intended it
-            if multiply != 0:
-                value = raw_value / multiply
-            else:
-                value = raw_value
-
-        elif var_type == VariableTypes.STRING:
+        # Handle strings
+        if var_type == VariableTypes.STRING:
             # STRING (160 bytes / 80 registers) -> ASCII string
             value = data_bytes.decode('ascii').strip('\x00')
-            
-        else:
-             raise ValueError("Unsupported or incomplete variable type/data received.")
+            return value
+
+        # Handle other types
+        try:
+            value = struct.unpack(var_type.fmt, data_bytes)[0]
+        except Exception as e:
+            print(f"Failed to unpack bytes {e}")
 
         return value
         
@@ -523,23 +516,21 @@ class SnpxClient:
         # determine how many bytes the variable occupies (size is in 16-bit words)
         byte_len = var_type.size * 2
 
-        # build payload bytes (little-endian to match your read logic)
-        if var_type == VariableTypes.REAL:
-            # 32-bit IEEE float
-            payload = struct.pack('<f', float(value))
-        elif var_type == VariableTypes.INT:
-            # apply multiply scaling if used when reading (inverse for writing)
-            if var_type.multiply and var_type.multiply != 0:
-                raw = int(value * var_type.multiply)
-            else:
-                raw = int(value)
-            payload = struct.pack('<i', raw)    # 4-byte signed int little-endian
-        elif var_type == VariableTypes.STRING:
+        # Handle strings
+        if var_type == VariableTypes.STRING:
+            # STRING (160 bytes / 80 registers) -> ASCII string
             payload = str(value).encode('ascii', errors='replace')[:byte_len]
             if len(payload) < byte_len:
-                payload = payload + b'\x00' * (byte_len - len(payload))
+                payload = payload + b'\x00' * (byte_len - len(payload))            
+                return value
+
+        # Handle other types
         else:
-            raise ValueError("Unsupported variable type for write")
+            try:
+                payload = struct.pack(var_type.fmt, value)
+            except Exception as e:
+                print(f"Failed to unpack bytes {e}")
+                return None
 
         # ensure payload is exactly byte_len
         if len(payload) < byte_len:
@@ -622,6 +613,9 @@ BASE_MSG = [
     0x00,        # 54 - Reserved/Unknown
     0x00         # 55 - Reserved/Unknown
 ]
+
+CLEAR_ASG = "02:00:02:00:00:00:00:00:00:01:00:00:00:00:00:00:00:01:00:00:00:00:00:00:00:00:00:00:00:00:02:c0:00:00:00:00:10:0e:00:00:01:01:07:38:00:00:06:00:43:4c:52:41:53:47:00:00"
+
 
 # Used at byte location 42
 class ServiceReqCode:
