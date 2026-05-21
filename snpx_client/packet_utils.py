@@ -2,7 +2,6 @@
 Packet construction utilities for SNPX protocol.
 Contains helper functions for building SNPX packets.
 """
-import socket
 from .globals import BASE_MSG, ServiceReqCode
 
 def print_bytes_with_index(bytearr : bytes):

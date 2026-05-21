@@ -26,14 +26,16 @@ class SnpxClient:
         # Initialize system variables manager
         self.sys_vars = SystemVariablesManager(self.socket, self.send_str)
 
-        self.di = DigitalSignal(socket=self.socket, code=MemTypeCode.I, address=0)
-        self.do = DigitalSignal(socket=self.socket, code=MemTypeCode.Q, address=0)
-        self.ui = DigitalSignal(socket=self.socket, code=MemTypeCode.I, address=6000)
-        self.uo = DigitalSignal(socket=self.socket, code=MemTypeCode.Q, address=6000)
-        self.si = DigitalSignal(socket=self.socket, code=MemTypeCode.I, address=7000) # SOP input
-        self.so = DigitalSignal(socket=self.socket, code=MemTypeCode.Q, address=7000) # SOP output
-        self.cart_pos = PositionData(socket=self.socket, code=0x08, address=12000)
-        self.j_pos = PositionData(socket=self.socket, code=0x08, address=12026)
+        self.di = DigitalSignal(socket=self.socket, code=MemTypeCode.I, address=SegmentOffset.SDIO)
+        self.do = DigitalSignal(socket=self.socket, code=MemTypeCode.Q, address=SegmentOffset.SDIO)
+        self.ri = DigitalSignal(socket=self.socket, code=MemTypeCode.I, address=SegmentOffset.RDIO)
+        self.ro = DigitalSignal(socket=self.socket, code=MemTypeCode.Q, address=SegmentOffset.RDIO)
+        self.ui = DigitalSignal(socket=self.socket, code=MemTypeCode.I, address=SegmentOffset.UOP)
+        self.uo = DigitalSignal(socket=self.socket, code=MemTypeCode.Q, address=SegmentOffset.UOP)
+        self.si = DigitalSignal(socket=self.socket, code=MemTypeCode.I, address=SegmentOffset.SOP, index_from_zero=True) # SOP input
+        self.so = DigitalSignal(socket=self.socket, code=MemTypeCode.Q, address=SegmentOffset.SOP, index_from_zero=True) # SOP output
+        self.cart_pos = PositionData(socket=self.socket, code=MemTypeCode.R, address=12000)
+        self.j_pos = PositionData(socket=self.socket, code=MemTypeCode.R, address=12026)
         
         # --- Set any default assignments ---
         # Position variable so that the position data class can work. 
