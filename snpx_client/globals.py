@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 # Packet values should be kept in hex value for debugging with Wireshark
 @dataclass
-class VariableInfo():
+class VariableInfo:
     size : int # size in bytes
     multiply : int  # multiply - typically only used for INTs
     fmt: str = ""
